@@ -1,3 +1,4 @@
+from starlette.datastructures import URL
 from starlette.responses import RedirectResponse
 
 
@@ -8,20 +9,24 @@ class PathSanitizeMiddleware:
     @staticmethod
     def sanitize(path: str) -> str:
         parts = path.split('/')
+        parts.reverse()
 
-        cleaned_parts = []
+        cleaned_parts, depth = [], 0
+
+        if parts and parts[0] in ('', '.'):
+            cleaned_parts.append('')
+
         for part in parts:
-            if part == '':
-                continue
-            elif part == '.':
+            if part in ('', '.'):
                 continue
             elif part == '..':
-                if cleaned_parts:
-                    cleaned_parts.pop()
+                depth += 1
+            elif depth:
+                depth -= 1
             else:
                 cleaned_parts.append(part)
-        if parts and part == '':
-            cleaned_parts.append(part)
+
+        cleaned_parts.reverse()
 
         return '/' + '/'.join(cleaned_parts)
 
@@ -30,9 +35,12 @@ class PathSanitizeMiddleware:
             await self.app(scope, receive, send)
             return
 
-        cleaned_path = PathSanitizeMiddleware.sanitize(scope['path'])
-        if cleaned_path != scope['path']:
-            response = RedirectResponse(cleaned_path, status_code=307)
+        url = URL(scope=scope)
+
+        cleaned_path = self.sanitize(url.path)
+        if cleaned_path != url.path:
+            url = url.replace(path=cleaned_path)
+            response = RedirectResponse(url, status_code=307)
             await response(scope, receive, send)
             return
 
