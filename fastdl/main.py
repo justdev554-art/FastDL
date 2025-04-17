@@ -55,13 +55,13 @@ middleware = [
     Middleware(PathSanitizeMiddleware),
 ]
 
-app = Starlette(
+application = Starlette(
     routes=routes,
     middleware=middleware
 )
 
-app = CORSMiddleware(
-    app=app,
+application = CORSMiddleware(
+    app=application,
     allow_origins=['*'],
     allow_methods=['GET', 'HEAD']
 )

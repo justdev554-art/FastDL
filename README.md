@@ -16,7 +16,7 @@ To start the FastDL server, use any ASGI-compatible web server such as **Uvicorn
 To run the server using Uvicorn:
 
 ```sh
-uvicorn fastdl:app --host 0.0.0.0 --port 8000
+uvicorn fastdl:application --host 0.0.0.0 --port 8000
 ```
 
 ## Configuration
