@@ -1,8 +1,11 @@
 {
-    "/foolish/competitive/1": [
-        "/srv/hosting-data/foolish/teamfortress2/competitive/1",
+    "servers": [
         {
-            "gameinfo_path": "tf"
+            "route": "/foolish/competitive/1",
+            "path_base": "/srv/hosting-data/foolish/teamfortress2/competitive/1",
+            "path_mapping": {
+                "gameinfo_path": "tf"
+            }
         }
     ]
 }

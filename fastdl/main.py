@@ -1,6 +1,5 @@
-from functools import partial
 import os
-import json
+from functools import partial
 
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
@@ -9,9 +8,10 @@ from starlette.requests import Request
 from starlette.responses import FileResponse, PlainTextResponse, Response
 from starlette.routing import Mount, Route
 
-from cache import FileCache
-from middleware import PathSanitizeMiddleware
-from routes import ROUTES
+from .cache import FileCache
+from .configuration import configuration
+from .middleware import PathSanitizeMiddleware
+from .routes import ROUTES
 
 
 async def base_endpoint(request: Request, *, share, access, predicate):
@@ -23,27 +23,30 @@ async def base_endpoint(request: Request, *, share, access, predicate):
     else:
         return PlainTextResponse('Not Found', status_code=404)
 
-with open('configuration.json', encoding='UTF-8') as f:
-    paths = json.load(f)
-
 routes = []
 
-for route, (path_base, path_mapping) in paths.items():
+for server in configuration['servers']:
+    route = server['route']
+    path_base = server['path_base']
+    path_mapping = server['path_mapping']
+
     cache = FileCache(path_base, path_mapping)
 
     subroutes = []
 
     for prefix, share, predicate in ROUTES:
-        endpoint = partial(base_endpoint, share=share,
-                           access=cache.access, predicate=predicate)
-
-        subroutes.append(
-            Route(
-                path=prefix + r'/{path:path}',
-                endpoint=endpoint,
-                methods=['GET', 'HEAD'],
-            )
+        endpoint = partial(
+            base_endpoint,
+            share=share,
+            access=cache.access,
+            predicate=predicate,
         )
+
+        subroutes.append(Route(
+            path=prefix + r'/{path:path}',
+            endpoint=endpoint,
+            methods=['GET', 'HEAD'],
+        ))
 
     routes.append(Mount(route, routes=subroutes))
 

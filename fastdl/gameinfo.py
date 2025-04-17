@@ -7,8 +7,7 @@ from typing import Iterable, Mapping, Tuple
 from srctools.keyvalues import Keyvalues, NoKeyError
 from srctools.tokenizer import TokenSyntaxError
 
-from common import InternalError
-
+from .common import InternalError
 
 PATTERN = re.compile(r'^(?:\|([A-Za-z0-9_]+)\|)?(.+)')
 

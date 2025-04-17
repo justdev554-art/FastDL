@@ -1,4 +1,4 @@
-from starlette.datastructures import URL
+from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 
@@ -35,11 +35,11 @@ class PathSanitizeMiddleware:
             await self.app(scope, receive, send)
             return
 
-        url = URL(scope=scope)
+        request = Request(scope, receive, send)
 
-        cleaned_path = self.sanitize(url.path)
-        if cleaned_path != url.path:
-            url = url.replace(path=cleaned_path)
+        cleaned_path = self.sanitize(request.url.path)
+        if cleaned_path != request.url.path:
+            url = request.url.replace(path=cleaned_path)
             response = RedirectResponse(url, status_code=307)
             await response(scope, receive, send)
             return

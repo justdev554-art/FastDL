@@ -1,8 +1,9 @@
 import os
+from typing import Mapping, Sequence
 
 from anyio import Path
-from gameinfo import extract_searchpaths, resolve_searchpaths
-from typing import Mapping, Sequence
+
+from .gameinfo import extract_searchpaths, resolve_searchpaths
 
 
 class FileCache:
