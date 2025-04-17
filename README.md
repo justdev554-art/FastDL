@@ -4,8 +4,8 @@ An intelligent FastDL server implemented in Python, designed to automatically re
 
 ## Features
 
-- **Accurate File Resolution**: Parses `gameinfo.txt` to determine the prioritized traversal order of search paths during file resolution.
-- **Enhanced Security**: Limits file access to a predefined set of allowed file extensions.
+- **Accurate File Resolution**: Parses `gameinfo.txt` to determine the traversal order of search paths, accurately replicating the behavior of the Source Dedicated Server (SRCDS).
+- **Enhanced Security**: Restricts file access to a predefined set of allowed file extensions.
 - **Path Integrity Enforcement**: Prevents path traversal and manipulation through strict path filtering.
 - **Path Caching**: Caches resolved file paths to improve performance and reduce redundant filesystem lookups.
 
