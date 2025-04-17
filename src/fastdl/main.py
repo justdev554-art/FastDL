@@ -1,3 +1,4 @@
+from mimetypes import guess_type
 import os
 from functools import partial
 
@@ -19,7 +20,8 @@ async def base_endpoint(request: Request, *, share, access, predicate):
     if not predicate(path):
         return Response(status_code=422)
     elif file := await access(path):
-        return FileResponse(file)
+        media_type = guess_type(file)[0] or "application/octet-stream"
+        return FileResponse(file, media_type=media_type)
     else:
         return PlainTextResponse('Not Found', status_code=404)
 

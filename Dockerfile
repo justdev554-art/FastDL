@@ -23,6 +23,11 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:${PYTHON_VERSION}-slim
 
+RUN set -eux; \
+    apt-get update; \
+    apt-get install --assume-yes mime-support; \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy the environment, but not the source code
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
