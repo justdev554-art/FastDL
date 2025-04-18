@@ -1,16 +1,62 @@
 import json
 import os
+from dataclasses import dataclass
+from typing import List, Mapping
+from pathlib import Path
 
-FASTDL_CONFIG_KEY     = 'FASTDL_CONFIG'
+from dacite import from_dict
+
+# Constants
+FASTDL_CONFIG_KEY = 'FASTDL_CONFIG'
 FASTDL_CONFIG_DEFAULT = 'configuration.json'
 
-config_path = os.environ.get(FASTDL_CONFIG_KEY, FASTDL_CONFIG_DEFAULT)
+# Resolve configuration path
+conf_path = Path(os.environ.get(FASTDL_CONFIG_KEY, FASTDL_CONFIG_DEFAULT))
 
-with open(config_path, encoding='UTF-8') as f:
-    configuration = json.load(f)
 
-print('Configured FastDL servers:')
-for server in configuration['servers']:
-    print(f'  - route: {server["route"]}')
-    print(f'    base: {server["path_base"]}')
-    
+@dataclass(frozen=True, slots=True)
+class Server:
+    route: str
+    path_base: str
+    path_mapping: Mapping[str, str]
+
+
+@dataclass(frozen=True, slots=True)
+class Configuration:
+    servers: List[Server]
+
+
+def configure() -> Configuration:
+    """
+    Load and parse the configuration file into a Configuration object.
+    """
+    if not conf_path.is_file():
+        raise FileNotFoundError(f"Configuration file not found: {conf_path}")
+
+    try:
+        with conf_path.open(encoding='UTF-8') as f:
+            data = json.load(f)
+            return from_dict(data_class=Configuration, data=data)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in configuration file: {conf_path}") from e
+
+
+def display_configuration(conf: Configuration) -> None:
+    """
+    Display the loaded configuration in a human-readable format.
+    """
+    print(f"Using configuration file: {conf_path}")
+    print("\nConfigured FastDL servers:")
+    for server in conf.servers:
+        _display_server(server)
+
+
+def _display_server(server: Server) -> None:
+    """
+    Display details of a single server configuration.
+    """
+    print(f"  - route: {server.route}")
+    print(f"    path_base: {server.path_base}")
+    print(f"    path_mapping:")
+    for key, value in server.path_mapping.items():
+        print(f"       {key}: {value}")

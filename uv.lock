@@ -3,15 +3,6 @@ revision = 1
 requires-python = ">=3.13"
 
 [[package]]
-name = "aiorwlock"
-version = "1.5.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c5/bf/d1ddcd676be027a963b3b01fdf9915daf4590b4dfd03bf1c8c2858aac7e3/aiorwlock-1.5.0.tar.gz", hash = "sha256:b529da24da659bdedcf68faf216595bde00db228c905197ac554773620e7fd2f", size = 7315 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fd/4c/072b4097b2d05dbc4739b12a073da27496ca8241dec044c1ebc611eacf25/aiorwlock-1.5.0-py3-none-any.whl", hash = "sha256:0010cd2d2c603eb84bfee1cfd06233a976618dab90ec7108191e936137a8420a", size = 7833 },
-]
-
-[[package]]
 name = "anyio"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -55,29 +46,41 @@ wheels = [
 ]
 
 [[package]]
+name = "dacite"
+version = "1.9.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/55/a0/7ca79796e799a3e782045d29bf052b5cde7439a2bbb17f15ff44f7aacc63/dacite-1.9.2.tar.gz", hash = "sha256:6ccc3b299727c7aa17582f0021f6ae14d5de47c7227932c47fec4cdfefd26f09", size = 22420 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/94/35/386550fd60316d1e37eccdda609b074113298f23cef5bddb2049823fe666/dacite-1.9.2-py3-none-any.whl", hash = "sha256:053f7c3f5128ca2e9aceb66892b1a3c8936d02c686e707bee96e19deef4bc4a0", size = 16600 },
+]
+
+[[package]]
 name = "fastdl"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "aiorwlock" },
+    { name = "dacite" },
     { name = "srctools" },
     { name = "starlette" },
 ]
 
 [package.dev-dependencies]
+dev = [
+    { name = "uvicorn" },
+]
 docker = [
     { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "aiorwlock", specifier = ">=1.5.0" },
+    { name = "dacite", specifier = ">=1.9.2" },
     { name = "srctools", specifier = ">=2.5.0" },
     { name = "starlette", specifier = ">=0.46.2" },
 ]
 
 [package.metadata.requires-dev]
-dev = []
+dev = [{ name = "uvicorn", specifier = ">=0.34.1" }]
 docker = [{ name = "uvicorn", specifier = ">=0.34.1" }]
 
 [[package]]
