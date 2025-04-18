@@ -58,7 +58,7 @@ class File:
         mtime = os.stat(path).st_mtime_ns
         subpaths = [
             os.path.realpath(os.path.join(path, subpath))
-            for subpath in os.listdir(path)
+            for subpath in sorted(os.listdir(path))
             if os.path.isdir(os.path.join(path, subpath))
         ]
         return mtime, subpaths
@@ -87,7 +87,7 @@ class File:
         if current_mtime != mtime:
             return current_mtime, [
                 os.path.realpath(os.path.join(path, subpath))
-                for subpath in os.listdir(path)
+                for subpath in sorted(os.listdir(path))
                 if os.path.isdir(os.path.join(path, subpath))
             ]
         return mtime, subpaths
