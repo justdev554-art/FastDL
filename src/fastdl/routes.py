@@ -11,10 +11,11 @@ class Suffix:
 
 
 ROUTES = [
-    ('/maps',      'maps',      Suffix('.bsp', '.nav')),
-    ('/materials', 'materials', Suffix('.vmt', '.vtf')),
-    ('/models',    'models',    Suffix('.mdl', '.phy', '.vmt', '.vtf', '.vtx', '.vvd')),
-    ('/sound',     'sound',     Suffix('.mp3', '.wav')),
+    (r'/maps',          r'maps',          Suffix('.bsp', '.nav')),
+    (r'/materials',     r'materials',     Suffix('.vmt', '.vtf')),
+    (r'/models',        r'models',        Suffix('.mdl', '.phy', '.vmt', '.vtf', '.vtx', '.vvd')),
+    (r'/scripts/items', r'scripts/items', Suffix('.txt')),
+    (r'/sound',         r'sound',         Suffix('.mp3', '.wav')),
 ]
 
 print('Configured subroutes:')
