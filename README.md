@@ -5,13 +5,14 @@ An intelligent FastDL server implemented in Python, designed to automatically re
 ## Features
 
 - **Accurate File Resolution**: Parses `gameinfo.txt` to determine the traversal order of search paths, accurately replicating the behavior of the Source Dedicated Server (SRCDS).
+- **On-the-fly bz2 Compression**: Automatically compresses smaller files (<64KB) on demand when clients request `.bz2` versions, eliminating the need to store duplicate compressed copies of files.
 - **Enhanced Security**: 
   - Restricts file access to a predefined set of allowed file extensions
   - Path sanitization middleware prevents path traversal attacks
   - CORS headers configured for safe cross-origin requests
 - **Path Integrity Enforcement**: Prevents path manipulation through strict path filtering and normalization.
 - **Dynamic Path Resolution**: Automatically handles wildcard paths in game configurations.
-- **Directory Monitoring**: Watches for changes in game directories and updates available files without restart.
+- **Directory Monitoring**: Watches for changes in game directories and updates available files every 30 seconds without requiring a server restart.
 - **Containerized Deployment**: Includes Docker configuration for easy deployment.
 
 ## Requirements
@@ -115,6 +116,19 @@ The server only serves specific file types for security reasons:
 - **Models**: `.mdl`, `.phy`, `.vmt`, `.vtf`, `.vtx`, `.vvd` (and `.bz2` variants)
 - **Scripts**: `.txt` (and `.bz2` variants) in the `scripts/items` path
 - **Sounds**: `.mp3`, `.wav` (and `.bz2` variants)
+
+## Compression Features
+
+FastDL implements two approaches to file compression:
+
+1. **Pre-compressed files**: The server can serve `.bz2` compressed files that already exist on disk.
+2. **On-the-fly compression**: When a client requests a `.bz2` file that doesn't exist, the server will:
+   - Look for the uncompressed version
+   - For files smaller than 64KB, compress them in memory using bz2
+   - Serve the compressed data without creating a permanent file
+   - This saves disk space while still providing compressed downloads
+
+This hybrid approach optimizes both server performance and bandwidth usage without requiring manual pre-compression of all files.
 
 ## Security Considerations
 
