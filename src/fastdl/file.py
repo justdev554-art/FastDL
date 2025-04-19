@@ -128,16 +128,21 @@ class File:
         """
         Resolve a URL path to a file path if it exists.
         """
-        for searchpath in self.resolved_searchpaths:
+        return await to_thread.run_sync(self._get, url_path, self.resolved_searchpaths)
+    
+    def _get(self, url_path: str, searchpaths: List[str]) -> Optional[Tuple[str, os.stat_result]]:
+        """
+        Get the file path and stat result for a given URL path.
+        """
+        for searchpath in searchpaths:
+            # Construct the full file path
             file_path = os.path.join(searchpath, url_path)
-            stat_result = await to_thread.run_sync(self._stat, file_path)
-            if stat_result and S_ISREG(stat_result.st_mode):
-                return file_path, stat_result
-        return None
 
-    @staticmethod
-    def _stat(path: str):
-        try:
-            return os.stat(path)
-        except (OSError, ValueError):
-            return None
+            # Check if the file exists and is a regular file
+            try:
+                stat_result = os.stat(file_path)
+                if S_ISREG(stat_result.st_mode):
+                    return file_path, stat_result
+            except (OSError, ValueError):
+                continue
+        return None
