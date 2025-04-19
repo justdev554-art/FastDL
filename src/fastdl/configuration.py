@@ -2,7 +2,6 @@ import json
 import os
 from dataclasses import dataclass
 from typing import List, Mapping
-from pathlib import Path
 
 from dacite import from_dict
 
@@ -11,7 +10,7 @@ FASTDL_CONFIG_KEY = 'FASTDL_CONFIG'
 FASTDL_CONFIG_DEFAULT = 'configuration.json'
 
 # Resolve configuration path
-conf_path = Path(os.environ.get(FASTDL_CONFIG_KEY, FASTDL_CONFIG_DEFAULT))
+conf_path = os.environ.get(FASTDL_CONFIG_KEY, FASTDL_CONFIG_DEFAULT)
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,11 +29,11 @@ def configure() -> Configuration:
     """
     Load and parse the configuration file into a Configuration object.
     """
-    if not conf_path.is_file():
+    if not os.path.isfile(conf_path):
         raise FileNotFoundError(f"Configuration file not found: {conf_path}")
 
     try:
-        with conf_path.open(encoding='UTF-8') as f:
+        with open(conf_path, encoding='UTF-8') as f:
             data = json.load(f)
             return from_dict(data_class=Configuration, data=data)
     except json.JSONDecodeError as e:

@@ -72,8 +72,40 @@ class File:
         ]
         self.resolved_searchpaths = resolved_searchpaths
 
+    async def watch(self) -> None:
+        """
+        Continuously watch for changes in the search paths, handling shutdown cleanly.
+        """
+        try:
+            while True:
+                await asyncio.sleep(30)
+                await self.resolve_wildcard_paths()
+        except asyncio.CancelledError:
+            pass
+
+    async def resolve_wildcard_paths(self) -> None:
+        """
+        Asynchronously resolve all wildcard paths and update resolutions.
+        """
+        tasks = []
+        async with asyncio.TaskGroup() as group:
+            for idx, (path, wildcard) in enumerate(self.searchpaths):
+                if not wildcard:
+                    continue
+                mtime, subpaths = self._resolutions[idx]
+                tasks.append((idx, group.create_task(to_thread.run_sync(self.resolve_wildcard_path, path, mtime, subpaths))))
+
+        for idx, task in tasks:
+            self._resolutions[idx] = task.result()
+
+        resolved_searchpaths = [
+            subpath for _, subpaths in self._resolutions for subpath in subpaths
+        ]
+        if self.resolved_searchpaths != resolved_searchpaths:
+            self.resolved_searchpaths = resolved_searchpaths
+
     @staticmethod
-    def resolve_wildcard(path: str, mtime: int, subpaths: List[str]) -> Tuple[int, List[str]]:
+    def resolve_wildcard_path(path: str, mtime: int, subpaths: List[str]) -> Tuple[int, List[str]]:
         """
         Resolve a wildcard path.
         """
@@ -91,38 +123,6 @@ class File:
                 if os.path.isdir(os.path.join(path, subpath))
             ]
         return mtime, subpaths
-
-    async def async_resolve(self) -> None:
-        """
-        Asynchronously resolve all wildcard paths and update resolutions.
-        """
-        tasks = []
-        async with asyncio.TaskGroup() as group:
-            for idx, (path, wildcard) in enumerate(self.searchpaths):
-                if not wildcard:
-                    continue
-                mtime, subpaths = self._resolutions[idx]
-                tasks.append((idx, group.create_task(to_thread.run_sync(self.resolve_wildcard, path, mtime, subpaths))))
-
-        for idx, task in tasks:
-            self._resolutions[idx] = task.result()
-
-        resolved_searchpaths = [
-            subpath for _, subpaths in self._resolutions for subpath in subpaths
-        ]
-        if self.resolved_searchpaths != resolved_searchpaths:
-            self.resolved_searchpaths = resolved_searchpaths
-
-    async def watch(self) -> None:
-        """
-        Continuously watch for changes in the search paths, handling shutdown cleanly.
-        """
-        try:
-            while True:
-                await asyncio.sleep(30)
-                await self.async_resolve()
-        except asyncio.CancelledError:
-            pass
 
     async def __call__(self, url_path: str) -> Optional[Tuple[str, os.stat_result]]:
         """
