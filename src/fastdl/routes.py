@@ -1,7 +1,9 @@
+import bz2
 import os
 from mimetypes import guess_type
 from typing import Mapping, List, Tuple, Callable
 
+from anyio import open_file, to_thread
 from starlette.requests import Request
 from starlette.responses import FileResponse, PlainTextResponse, Response
 from starlette.routing import Route
@@ -55,6 +57,14 @@ def make_endpoint(share: str, access: File, predicate: Callable[[str], bool]) ->
             media_type = guess_type(file_path)[0] or "application/octet-stream"
             # Return the file with the correct content type
             return FileResponse(file_path, media_type=media_type, stat_result=stat_result)
+        
+        if url_path.endswith('.bz2') and (pair := await access(url_path[:-4])):
+            file_path, stat_result = pair
+            if stat_result.st_size < 64 * 1024:
+                async with await open_file(file_path, mode="rb") as file:
+                    data = await file.read()
+                compressed_data = await to_thread.run_sync(bz2.compress, data)
+                return Response(compressed_data, media_type='application/x-bzip2')
 
         # If the file wasn’t found, return a standard 404 Not Found
         return PlainTextResponse('Not Found', status_code=404)
