@@ -1,12 +1,13 @@
 import bz2
 import os
 from mimetypes import guess_type
-from typing import List, Tuple, Callable
+from typing import AsyncGenerator, Callable, List, Tuple
 
+from aiofile import AIOFile
 from anyio import open_file, to_thread
 from starlette.requests import Request
-from starlette.responses import FileResponse, PlainTextResponse, Response
-from starlette.routing import Route, Mount
+from starlette.responses import PlainTextResponse, Response, StreamingResponse
+from starlette.routing import Mount, Route
 
 from fastdl.configuration import Server
 from fastdl.file import File
@@ -37,6 +38,26 @@ SUBROUTES: List[Tuple[str, str, Callable[[str], bool]]] = [
     (r'/sound',         r'sound',         Suffix('.mp3', '.wav')),
 ]
 
+CHUNK_SIZE = 64 * 1024  # 64 KiB
+
+async def stream_file(file_path: str) -> AsyncGenerator[bytes, None]:
+    """
+    Asynchronously stream a file in chunks.
+    """
+    async with await open_file(file_path, mode="rb") as fp, AIOFile.from_fp(fp) as file:
+        offset = 0
+        while chunk := await file.read_bytes(CHUNK_SIZE, offset):
+            offset += len(chunk)
+            yield chunk
+
+async def stream_compressed_file(file_path: str) -> AsyncGenerator[bytes, None]:
+    """
+    Asynchronously stream a compressed file in chunks.
+    """
+    compressor = bz2.BZ2Compressor()
+    async for chunk in stream_file(file_path):
+        yield await to_thread.run_sync(compressor.compress, chunk)
+    yield await to_thread.run_sync(compressor.flush)
 
 def make_endpoint(server: Server, share: str, access: File, predicate: Callable[[str], bool]) -> Callable:
     """
@@ -59,15 +80,12 @@ def make_endpoint(server: Server, share: str, access: File, predicate: Callable[
             # Determine the MIME type from the file extension, defaulting if unknown
             media_type = guess_type(file_path)[0] or "application/octet-stream"
             # Return the file with the correct content type
-            return FileResponse(file_path, media_type=media_type, stat_result=stat_result)
+            return StreamingResponse(stream_file(file_path), media_type=media_type)
         
         if url_path.endswith('.bz2') and (pair := await access(url_path[:-4])):
             file_path, stat_result = pair
             if stat_result.st_size < compress_max_size:
-                async with await open_file(file_path, mode="rb") as file:
-                    data = await file.read()
-                compressed_data = await to_thread.run_sync(bz2.compress, data)
-                return Response(compressed_data, media_type='application/x-bzip2')
+                return StreamingResponse(stream_compressed_file(file_path), media_type="application/x-bzip2")
 
         # If the file wasn’t found, return a standard 404 Not Found
         return PlainTextResponse('Not Found', status_code=404)

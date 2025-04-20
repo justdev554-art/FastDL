@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "aiofile>=3.9.0",
     "dacite>=1.9.2",
     "srctools>=2.5.0",
     "starlette>=0.46.2",
