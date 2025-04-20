@@ -1,7 +1,5 @@
 import bz2
-import hashlib
 import os
-from email.utils import formatdate
 from mimetypes import guess_file_type
 from typing import AsyncGenerator, Callable, List, Tuple
 
@@ -84,14 +82,9 @@ def make_endpoint(server: Server, share: str, access: File, predicate: Callable[
             media_type = f"application/x-{guess[1]}" if guess[1] else guess[0] or "application/octet-stream"
 
             content_length = str(stat_result.st_size)
-            last_modified = formatdate(stat_result.st_mtime, usegmt=True)
-            etag_base = str(stat_result.st_mtime_ns) + "-" + str(stat_result.st_size)
-            etag = f'"{hashlib.md5(etag_base.encode(), usedforsecurity=False).hexdigest()}"'
 
             headers = {
                 "content-length": content_length,
-                "last-modified": last_modified,
-                "etag": etag,
             }
 
             if request.method == "HEAD":
@@ -112,25 +105,14 @@ def make_endpoint(server: Server, share: str, access: File, predicate: Callable[
             file_path, stat_result = pair
 
             if stat_result.st_size < compress_max_size:
-                last_modified = formatdate(stat_result.st_mtime, usegmt=True)
-                etag_base = str(stat_result.st_mtime_ns) + "-" + str(stat_result.st_size)
-                etag = f'"{hashlib.md5(etag_base.encode(), usedforsecurity=False).hexdigest()}"'
-
-                headers = {
-                    "last-modified": last_modified,
-                    "etag": etag,
-                }
-
                 if request.method == "HEAD":
                     # If the request method is HEAD, return headers only
                     return Response(
-                        headers=headers,
                         media_type="application/x-bzip2",
                     )
 
                 return Response(
                     content=await compress_file(file_path, stat_result),
-                    headers=headers,
                     media_type="application/x-bzip2",
                 )
 
