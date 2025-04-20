@@ -52,16 +52,13 @@ async def stream_file(file_path: str) -> AsyncGenerator[bytes, None]:
             offset += len(chunk)
             yield chunk
 
-async def compress_file(file_path: str) -> bytes:
+async def compress_file(file_path: str, stat_result: os.stat_result) -> bytes:
     """
     Asynchronously compress a file.
     """
-    compressor = bz2.BZ2Compressor()
-    array = bytearray()
-    async for chunk in stream_file(file_path):
-        array.extend(await to_thread.run_sync(compressor.compress, chunk))
-    array.extend(await to_thread.run_sync(compressor.flush))
-    return bytes(array)
+    async with await open_file(file_path, mode="rb") as fp, AIOFile.from_fp(fp.wrapped) as file:
+        data = await file.read_bytes(stat_result.st_size)
+    return await to_thread.run_sync(bz2.compress, data)
 
 def make_endpoint(server: Server, share: str, access: File, predicate: Callable[[str], bool]) -> Callable:
     """
@@ -132,7 +129,7 @@ def make_endpoint(server: Server, share: str, access: File, predicate: Callable[
                     )
 
                 return Response(
-                    content=await compress_file(file_path),
+                    content=await compress_file(file_path, stat_result),
                     headers=headers,
                     media_type="application/x-bzip2",
                 )
