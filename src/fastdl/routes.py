@@ -1,6 +1,8 @@
 import bz2
+import hashlib
 import os
-from mimetypes import guess_type
+from email.utils import formatdate
+from mimetypes import guess_file_type
 from typing import AsyncGenerator, Callable, List, Tuple
 
 from aiofile import AIOFile
@@ -44,20 +46,22 @@ async def stream_file(file_path: str) -> AsyncGenerator[bytes, None]:
     """
     Asynchronously stream a file in chunks.
     """
-    async with await open_file(file_path, mode="rb") as fp, AIOFile.from_fp(fp) as file:
+    async with await open_file(file_path, mode="rb") as fp, AIOFile.from_fp(fp.wrapped) as file:
         offset = 0
         while chunk := await file.read_bytes(CHUNK_SIZE, offset):
             offset += len(chunk)
             yield chunk
 
-async def stream_compressed_file(file_path: str) -> AsyncGenerator[bytes, None]:
+async def compress_file(file_path: str) -> bytes:
     """
-    Asynchronously stream a compressed file in chunks.
+    Asynchronously compress a file.
     """
     compressor = bz2.BZ2Compressor()
+    array = bytearray()
     async for chunk in stream_file(file_path):
-        yield await to_thread.run_sync(compressor.compress, chunk)
-    yield await to_thread.run_sync(compressor.flush)
+        array.extend(await to_thread.run_sync(compressor.compress, chunk))
+    array.extend(await to_thread.run_sync(compressor.flush))
+    return bytes(array)
 
 def make_endpoint(server: Server, share: str, access: File, predicate: Callable[[str], bool]) -> Callable:
     """
@@ -77,15 +81,61 @@ def make_endpoint(server: Server, share: str, access: File, predicate: Callable[
         # Attempt to locate (and possibly fetch) the file asynchronously
         if pair := await access(url_path):
             file_path, stat_result = pair
+
             # Determine the MIME type from the file extension, defaulting if unknown
-            media_type = guess_type(file_path)[0] or "application/octet-stream"
-            # Return the file with the correct content type
-            return StreamingResponse(stream_file(file_path), media_type=media_type)
+            guess = guess_file_type(file_path)
+            media_type = f"application/x-{guess[1]}" if guess[1] else guess[0] or "application/octet-stream"
+
+            content_length = str(stat_result.st_size)
+            last_modified = formatdate(stat_result.st_mtime, usegmt=True)
+            etag_base = str(stat_result.st_mtime_ns) + "-" + str(stat_result.st_size)
+            etag = f'"{hashlib.md5(etag_base.encode(), usedforsecurity=False).hexdigest()}"'
+
+            headers = {
+                "content-length": content_length,
+                "last-modified": last_modified,
+                "etag": etag,
+            }
+
+            if request.method == "HEAD":
+                # If the request method is HEAD, return headers only
+                return Response(
+                    headers=headers,
+                    media_type=media_type,
+                )
+
+            # Return the file stream
+            return StreamingResponse(
+                content=stream_file(file_path),
+                headers=headers,
+                media_type=media_type,
+            )
         
         if url_path.endswith('.bz2') and (pair := await access(url_path[:-4])):
             file_path, stat_result = pair
+
             if stat_result.st_size < compress_max_size:
-                return StreamingResponse(stream_compressed_file(file_path), media_type="application/x-bzip2")
+                last_modified = formatdate(stat_result.st_mtime, usegmt=True)
+                etag_base = str(stat_result.st_mtime_ns) + "-" + str(stat_result.st_size)
+                etag = f'"{hashlib.md5(etag_base.encode(), usedforsecurity=False).hexdigest()}"'
+
+                headers = {
+                    "last-modified": last_modified,
+                    "etag": etag,
+                }
+
+                if request.method == "HEAD":
+                    # If the request method is HEAD, return headers only
+                    return Response(
+                        headers=headers,
+                        media_type="application/x-bzip2",
+                    )
+
+                return Response(
+                    content=await compress_file(file_path),
+                    headers=headers,
+                    media_type="application/x-bzip2",
+                )
 
         # If the file wasn’t found, return a standard 404 Not Found
         return PlainTextResponse('Not Found', status_code=404)
