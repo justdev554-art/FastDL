@@ -18,11 +18,15 @@ class Server:
     route: str
     path_base: str
     path_mapping: Mapping[str, str]
+    # optional
+    compress_max_size: int = 64 * 1024 # 64 KiB
 
 
 @dataclass(frozen=True, slots=True)
 class Configuration:
     servers: List[Server]
+    # optional
+    max_threads: int = 64
 
 
 def configure() -> Configuration:
@@ -45,6 +49,8 @@ def display_configuration(conf: Configuration) -> None:
     Display the loaded configuration in a human-readable format.
     """
     print(f"Using configuration file: {conf_path}")
+    print("\nConfigured settings:")
+    print(f"  - max_threads: {conf.max_threads}")
     print("\nConfigured FastDL servers:")
     for server in conf.servers:
         _display_server(server)
@@ -59,3 +65,4 @@ def _display_server(server: Server) -> None:
     print(f"    path_mapping:")
     for key, value in server.path_mapping.items():
         print(f"       {key}: {value}")
+    print(f"    compress_max_size: {server.compress_max_size} bytes")

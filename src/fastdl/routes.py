@@ -1,13 +1,14 @@
 import bz2
 import os
 from mimetypes import guess_type
-from typing import Mapping, List, Tuple, Callable
+from typing import List, Tuple, Callable
 
 from anyio import open_file, to_thread
 from starlette.requests import Request
 from starlette.responses import FileResponse, PlainTextResponse, Response
-from starlette.routing import Route
+from starlette.routing import Route, Mount
 
+from fastdl.configuration import Server
 from fastdl.file import File
 
 
@@ -37,10 +38,12 @@ SUBROUTES: List[Tuple[str, str, Callable[[str], bool]]] = [
 ]
 
 
-def make_endpoint(share: str, access: File, predicate: Callable[[str], bool]) -> Callable:
+def make_endpoint(server: Server, share: str, access: File, predicate: Callable[[str], bool]) -> Callable:
     """
     Create an endpoint for serving files based on a share path and predicate.
     """
+    compress_max_size = server.compress_max_size
+
     async def endpoint(request: Request) -> Response:
         # Build the target path by joining the share directory with the requested subpath
         url_path = os.path.join(share, request.path_params['path'])
@@ -60,7 +63,7 @@ def make_endpoint(share: str, access: File, predicate: Callable[[str], bool]) ->
         
         if url_path.endswith('.bz2') and (pair := await access(url_path[:-4])):
             file_path, stat_result = pair
-            if stat_result.st_size < 64 * 1024:
+            if stat_result.st_size < compress_max_size:
                 async with await open_file(file_path, mode="rb") as file:
                     data = await file.read()
                 compressed_data = await to_thread.run_sync(bz2.compress, data)
@@ -72,20 +75,23 @@ def make_endpoint(share: str, access: File, predicate: Callable[[str], bool]) ->
     return endpoint
 
 
-def make_subroutes(base: str, mapping: Mapping[str, str]) -> List[Route]:
+def make_routes(server: Server) -> List[Route]:
     """
-    Create subroutes based on the base path, mapping, and predefined subroutes.
+    Create routes based on the base path, mapping, and predefined subroutes.
     """
-    access = File(base, mapping)
+    access = File(server.path_base, server.path_mapping)
 
-    return [
-        Route(
-            path=f"{subroute}/{{path:path}}",
-            endpoint=make_endpoint(share, access, predicate),
-            methods=['GET', 'HEAD'],
-        )
-        for subroute, share, predicate in SUBROUTES
-    ]
+    return Mount(
+        path=server.route,
+        routes=[
+            Route(
+                path=f"{subroute}/{{path:path}}",
+                endpoint=make_endpoint(server, share, access, predicate),
+                methods=['GET', 'HEAD'],
+            )
+            for subroute, share, predicate in SUBROUTES
+        ]
+    )
 
 
 def display_subroutes() -> None:
