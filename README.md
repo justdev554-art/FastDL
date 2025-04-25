@@ -115,6 +115,7 @@ The server only serves specific file types for security reasons:
 - **Materials**: `.vmt`, `.vtf` (and `.bz2` variants)
 - **Models**: `.mdl`, `.phy`, `.vmt`, `.vtf`, `.vtx`, `.vvd` (and `.bz2` variants)
 - **Scripts**: `.txt` (and `.bz2` variants) in the `scripts/items` path
+- **Shaders**: `.vcs` (and `.bz2` variants)
 - **Sounds**: `.mp3`, `.wav` (and `.bz2` variants)
 
 ## Compression Features
