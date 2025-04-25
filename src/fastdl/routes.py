@@ -35,6 +35,7 @@ SUBROUTES: List[Tuple[str, str, Callable[[str], bool]]] = [
     (r'/materials',     r'materials',     Suffix('.vmt', '.vtf')),
     (r'/models',        r'models',        Suffix('.mdl', '.phy', '.vmt', '.vtf', '.vtx', '.vvd')),
     (r'/scripts/items', r'scripts/items', Suffix('.txt')),
+    (r'/shaders',       r'shaders',       Suffix('.vcs')),
     (r'/sound',         r'sound',         Suffix('.mp3', '.wav')),
 ]
 
