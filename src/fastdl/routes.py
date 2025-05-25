@@ -18,7 +18,7 @@ class Suffix:
     A predicate class to check if a file path ends with specific extensions.
     """
     def __init__(self, *extensions: str):
-        self.extensions = extensions + tuple(f"{ext}.bz2" for ext in extensions)
+        self.extensions = tuple(f"{ext}.bz2" for ext in extensions) + extensions
 
     def __call__(self, path: str) -> bool:
         # Return True if the path ends with any allowed extension
