@@ -148,6 +148,10 @@ uv sync --dev
 
 # Run the server with auto-reload
 uvicorn fastdl:application --reload
+
+# on windows
+
+uv run uvicorn fastdl:application --reload
 ```
 
 ## License
