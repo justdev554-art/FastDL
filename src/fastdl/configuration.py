@@ -25,6 +25,7 @@ class Configuration:
     servers: List[Server]
     # optional
     max_threads: int = 64
+    max_concurrent_downloads_per_client: int = 5
 
 
 def configure() -> Configuration:
@@ -49,6 +50,7 @@ def display_configuration(conf: Configuration) -> None:
     print(f"Using configuration file: {conf_path}")
     print("\nConfigured settings:")
     print(f"  - max_threads: {conf.max_threads}")
+    print(f"  - max_concurrent_downloads_per_client: {conf.max_concurrent_downloads_per_client}")
     print("\nConfigured FastDL servers:")
     for server in conf.servers:
         _display_server(server)

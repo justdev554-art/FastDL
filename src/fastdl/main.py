@@ -7,6 +7,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from .configuration import configure, display_configuration
 from .middleware import PathSanitizeMiddleware, SecurityHeadersMiddleware
+from .ratelimit import DownloadLimiter
 from .routes import display_subroutes, make_routes
 
 
@@ -17,12 +18,14 @@ async def lifespan(app: Starlette):
     limiter = anyio.to_thread.current_default_thread_limiter()
     limiter.total_tokens = configuration.max_threads
 
+    downloads = DownloadLimiter(configuration.max_concurrent_downloads_per_client)
+
     grouped: dict[str, list] = {}
     for server in configuration.servers:
         grouped.setdefault(server.route, []).append(server)
 
     for servers in grouped.values():
-        app.router.routes.extend(make_routes(servers))
+        app.router.routes.extend(make_routes(servers, downloads))
 
     display_configuration(configuration)
     display_subroutes()

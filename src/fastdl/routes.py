@@ -12,6 +12,7 @@ from starlette.routing import Mount, Route
 
 from fastdl.configuration import Server
 from fastdl.file import DirEntry, File
+from fastdl.ratelimit import DownloadLimiter
 
 
 class Suffix:
@@ -172,7 +173,7 @@ async def stream_file(file_path: str) -> AsyncGenerator[bytes, None]:
             offset += len(chunk)
             yield chunk
 
-def make_endpoint(server_route: str, share: str, subroute: str, access: File, predicate: Callable[[str], bool]) -> Callable:
+def make_endpoint(server_route: str, share: str, subroute: str, access: File, predicate: Callable[[str], bool], limiter: DownloadLimiter) -> Callable:
     """
     Create an endpoint for serving files based on a share path and predicate.
     """
@@ -221,9 +222,23 @@ def make_endpoint(server_route: str, share: str, subroute: str, access: File, pr
                     media_type=media_type,
                 )
 
+            # Reject the download if this client already holds the maximum
+            # number of concurrently streaming files
+            client_ip = request.client.host if request.client else "unknown"
+            token = limiter.try_acquire(client_ip)
+            if token is None:
+                return PlainTextResponse('Too Many Requests', status_code=429)
+
+            async def guarded_stream():
+                try:
+                    async for chunk in stream_file(file_path):
+                        yield chunk
+                finally:
+                    limiter.release(client_ip, token)
+
             # Return the file stream
             return StreamingResponse(
-                content=stream_file(file_path),
+                content=guarded_stream(),
                 headers=headers,
                 media_type=media_type,
             )
@@ -255,7 +270,7 @@ def make_index_endpoint(server_route: str, access: File) -> Callable:
     return index_endpoint
 
 
-def make_routes(servers: List[Server]) -> List[Route]:
+def make_routes(servers: List[Server], limiter: DownloadLimiter) -> List[Route]:
     """
     Create routes for a group of servers sharing the same route.
 
@@ -281,7 +296,7 @@ def make_routes(servers: List[Server]) -> List[Route]:
             routes=[
                 Route(
                     path=f"{subroute}",
-                    endpoint=make_endpoint(route, share, subroute, access, predicate),
+                    endpoint=make_endpoint(route, share, subroute, access, predicate, limiter),
                     methods=['GET', 'HEAD'],
                 )
                 for subroute, share, predicate in SUBROUTES
@@ -289,7 +304,7 @@ def make_routes(servers: List[Server]) -> List[Route]:
             + [
                 Route(
                     path=f"{subroute}/{{path:path}}",
-                    endpoint=make_endpoint(route, share, subroute, access, predicate),
+                    endpoint=make_endpoint(route, share, subroute, access, predicate, limiter),
                     methods=['GET', 'HEAD'],
                 )
                 for subroute, share, predicate in SUBROUTES
