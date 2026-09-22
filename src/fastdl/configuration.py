@@ -18,8 +18,6 @@ class Server:
     route: str
     path_base: str
     path_mapping: Mapping[str, str]
-    # optional
-    compress_max_size: int = 64 * 1024 # 64 KiB
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,4 +63,3 @@ def _display_server(server: Server) -> None:
     print(f"    path_mapping:")
     for key, value in server.path_mapping.items():
         print(f"       {key}: {value}")
-    print(f"    compress_max_size: {server.compress_max_size} bytes")

@@ -5,7 +5,6 @@ An intelligent FastDL server implemented in Python, designed to automatically re
 ## Features
 
 - **Accurate File Resolution**: Parses `gameinfo.txt` to determine the traversal order of search paths, accurately replicating the behavior of the Source Dedicated Server (SRCDS).
-- **On-the-fly bz2 Compression**: Automatically compresses smaller files (<64KB) on demand when clients request `.bz2` versions, eliminating the need to store duplicate compressed copies of files.
 - **Enhanced Security**: 
   - Restricts file access to a predefined set of allowed file extensions
   - Path sanitization middleware prevents path traversal attacks
@@ -120,16 +119,7 @@ The server only serves specific file types for security reasons:
 
 ## Compression Features
 
-FastDL implements two approaches to file compression:
-
-1. **Pre-compressed files**: The server can serve `.bz2` compressed files that already exist on disk.
-2. **On-the-fly compression**: When a client requests a `.bz2` file that doesn't exist, the server will:
-   - Look for the uncompressed version
-   - For files smaller than 64KB, compress them in memory using bz2
-   - Serve the compressed data without creating a permanent file
-   - This saves disk space while still providing compressed downloads
-
-This hybrid approach optimizes both server performance and bandwidth usage without requiring manual pre-compression of all files.
+FastDL does not compress files on the fly. Files are served exactly as they exist on disk, including any `.bz2` compressed files that were pre-compressed by the user or the game tools. Requesting a `.bz2` URL for a file that does not exist on disk returns a 404.
 
 ## Security Considerations
 

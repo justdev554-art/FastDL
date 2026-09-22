@@ -1,4 +1,3 @@
-import bz2
 import html
 import os
 from mimetypes import guess_file_type
@@ -6,7 +5,7 @@ from typing import AsyncGenerator, Callable, List, Tuple
 from urllib.parse import quote
 
 from aiofile import AIOFile
-from anyio import open_file, to_thread
+from anyio import open_file
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, PlainTextResponse, Response, StreamingResponse
 from starlette.routing import Mount, Route
@@ -173,20 +172,10 @@ async def stream_file(file_path: str) -> AsyncGenerator[bytes, None]:
             offset += len(chunk)
             yield chunk
 
-async def compress_file(file_path: str, stat_result: os.stat_result) -> bytes:
-    """
-    Asynchronously compress a file.
-    """
-    async with await open_file(file_path, mode="rb") as fp, AIOFile.from_fp(fp.wrapped) as file:
-        data = await file.read_bytes(stat_result.st_size)
-    return await to_thread.run_sync(bz2.compress, data)
-
 def make_endpoint(server: Server, share: str, subroute: str, access: File, predicate: Callable[[str], bool]) -> Callable:
     """
     Create an endpoint for serving files based on a share path and predicate.
     """
-    compress_max_size = server.compress_max_size
-
     async def endpoint(request: Request) -> Response:
         # Build the target path by joining the share directory with the requested subpath
         subpath = request.path_params.get('path') or ''
@@ -238,21 +227,6 @@ def make_endpoint(server: Server, share: str, subroute: str, access: File, predi
                 headers=headers,
                 media_type=media_type,
             )
-        
-        if url_path.endswith('.bz2') and (pair := await access(url_path[:-4])):
-            file_path, stat_result = pair
-
-            if stat_result.st_size < compress_max_size:
-                if request.method == "HEAD":
-                    # If the request method is HEAD, return headers only
-                    return Response(
-                        media_type="application/x-bzip2",
-                    )
-
-                return Response(
-                    content=await compress_file(file_path, stat_result),
-                    media_type="application/x-bzip2",
-                )
 
         # If the file wasn’t found, return a standard 404 Not Found
         return PlainTextResponse('Not Found', status_code=404)

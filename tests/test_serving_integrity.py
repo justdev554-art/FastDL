@@ -1,7 +1,5 @@
 import bz2
 
-import pytest
-
 
 def test_plain_file_served_verbatim(client):
     response = client.get('/test/maps/foolish/arena.bsp')
@@ -16,13 +14,6 @@ def test_plain_file_streamed_for_head(client):
     assert response.headers['content-length'] == '9'
 
 
-def test_on_the_fly_bz2_is_valid(client):
-    response = client.get('/test/maps/foolish/arena.bsp.bz2')
-    assert response.status_code == 200
-    assert response.headers['content-type'] == 'application/x-bzip2'
-    assert bz2.decompress(response.content) == b'ARENA-BSP'
-
-
 def test_on_disk_bz2_served_exactly(client):
     expected = bz2.compress(b'DE-DUST-ON-DISK-BZ2')
     response = client.get('/test/maps/de_test/de_dust.bsp.bz2')
@@ -31,7 +22,12 @@ def test_on_disk_bz2_served_exactly(client):
     assert response.content == expected
 
 
-def test_large_file_not_compressed(client):
+def test_missing_bz2_not_compressed_on_demand(client):
+    response = client.get('/test/maps/foolish/arena.bsp.bz2')
+    assert response.status_code == 404
+
+
+def test_large_file_never_generated_as_bz2(client):
     response = client.get('/test/maps/de_test/huge.bsp.bz2')
     assert response.status_code == 404
 
@@ -52,9 +48,9 @@ def test_missing_bz2_of_missing_file_404(client):
     assert response.status_code == 404
 
 
-def test_bz2_head_no_body(client):
+def test_missing_bz2_head_404(client):
     response = client.head('/test/maps/foolish/arena.bsp.bz2')
-    assert response.content == b''
+    assert response.status_code == 404
 
 
 def test_wav_served(client):
