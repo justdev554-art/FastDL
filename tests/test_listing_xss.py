@@ -63,3 +63,29 @@ def test_directories_precede_files():
         [DirEntry('a.bsp', False, 1), DirEntry('zdir', True, 0)], Suffix('.bsp')
     )
     assert html.index('/zdir/') < html.index('/a.bsp')
+
+
+def test_entry_name_with_html_chars_encoded():
+    html = render_directory_listing(
+        '/test', '/maps', '',
+        [DirEntry('<svg/onload=alert(1)>.vmt', False, 1)], PREDICATE
+    )
+    assert '<svg' not in html
+    assert 'href="/test/maps/%3Csvg/onload%3Dalert%281%29%3E.vmt"' in html
+
+
+def test_entry_name_with_single_quote_encoded():
+    html = render_directory_listing(
+        '/test', '/maps', '',
+        [DirEntry("o'brien.vmt", False, 1)], PREDICATE
+    )
+    assert "o'brien.vmt" not in html
+    assert 'href="/test/maps/o%27brien.vmt"' in html
+
+
+def test_hostile_dir_does_not_break_parent_link():
+    html = render_directory_listing(
+        '/test', '/maps', '"><img src=x>', [DirEntry('y.vmt', False, 1)], PREDICATE
+    )
+    assert '<img src=x>' not in html
+    assert '"><img' not in html

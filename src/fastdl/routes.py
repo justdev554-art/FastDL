@@ -43,6 +43,15 @@ SUBROUTES: List[Tuple[str, str, Callable[[str], bool]]] = [
 
 CHUNK_SIZE = 64 * 1024  # 64 KiB
 
+# Hardening headers for the HTML listing pages (self-contained, no scripts)
+LISTING_HEADERS = {
+    "content-security-policy": (
+        "default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; "
+        "media-src 'none'; object-src 'none'; frame-ancestors 'none'; "
+        "base-uri 'none'; form-action 'none'"
+    ),
+}
+
 def _join_url(*parts: str) -> str:
     """
     Join URL path segments into an application-rooted absolute path.
@@ -183,6 +192,7 @@ def make_endpoint(server: Server, share: str, subroute: str, access: File, predi
             return HTMLResponse(
                 render_directory_listing(server.route, subroute, subpath, listing, predicate),
                 status_code=200,
+                headers=LISTING_HEADERS,
             )
 
         # If the path does not satisfy our file‐extension predicate, reject the request
@@ -247,6 +257,7 @@ def make_index_endpoint(server: Server) -> Callable:
         return HTMLResponse(
             render_server_index(server.route),
             status_code=200,
+            headers=LISTING_HEADERS,
         )
 
     return index_endpoint

@@ -1,6 +1,37 @@
+from starlette.datastructures import MutableHeaders
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 from starlette.types import Scope, Receive, Send
+
+
+class SecurityHeadersMiddleware:
+    """
+    Middleware that adds hardening response headers to every HTTP response.
+    """
+
+    def __init__(self, app: callable):
+        """
+        Initialize the middleware with the ASGI app.
+        """
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        """
+        Intercept outgoing HTTP responses and inject security headers.
+        """
+        if scope['type'] != 'http':
+            await self.app(scope, receive, send)
+            return
+
+        async def send_wrapper(message) -> None:
+            if message['type'] == 'http.response.start':
+                headers = MutableHeaders(scope=message)
+                headers['x-content-type-options'] = 'nosniff'
+                headers['referrer-policy'] = 'no-referrer'
+                headers['x-frame-options'] = 'DENY'
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
 
 
 class PathSanitizeMiddleware:

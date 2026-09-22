@@ -1,3 +1,4 @@
+import bz2
 import json
 import os
 import shutil
@@ -13,6 +14,11 @@ SECRET_FILE = ROOT.parent / "secret.bsp"
 def _write(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
+
+
+def _write_bytes(path: Path, content: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content)
 
 
 _write(ROOT / "tf" / "gameinfo.txt", '\n'.join([
@@ -32,10 +38,15 @@ _write(ROOT / "tf" / "gameinfo.txt", '\n'.join([
 _write(ROOT / "tf" / "maps" / "foolish" / "arena.bsp", "ARENA-BSP")
 _write(ROOT / "tf" / "maps" / "foolish" / "arena.nav", "ARENA-NAV")
 _write(ROOT / "tf" / "maps" / "de_test" / "de_dust.bsp", "DE-DUST")
+_write(ROOT / "tf" / "maps" / "de_test" / "huge.bsp", "X" * (70 * 1024))
 _write(ROOT / "tf" / "maps" / "space dir" / "payload.vmt", "MOCK")
 _write(ROOT / "tf" / "maps" / "space dir" / "100%odd.vtf", "MOCK")
 _write(ROOT / "tf" / "maps" / "space dir" / "notes.txt", "MOCK")
 _write(ROOT / "tf" / "maps" / "space dir" / "usable.nav", "MOCK")
+
+DE_DUST_BZ2 = bz2.compress(b"DE-DUST-ON-DISK-BZ2")
+_write_bytes(ROOT / "tf" / "maps" / "de_test" / "de_dust.bsp.bz2", DE_DUST_BZ2)
+
 _write(ROOT / "sound" / "vo" / "hello.wav", "HELLO-WAV")
 _write(SECRET_FILE, "TOP-SECRET")
 
@@ -66,11 +77,14 @@ def client():
     from starlette.middleware.cors import CORSMiddleware
     from starlette.testclient import TestClient
 
-    from fastdl.middleware import PathSanitizeMiddleware
+    from fastdl.middleware import PathSanitizeMiddleware, SecurityHeadersMiddleware
 
     app = Starlette(
         lifespan=lifespan,
-        middleware=[Middleware(PathSanitizeMiddleware)],
+        middleware=[
+            Middleware(SecurityHeadersMiddleware),
+            Middleware(PathSanitizeMiddleware),
+        ],
     )
     app = CORSMiddleware(
         app=app,

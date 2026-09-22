@@ -6,7 +6,7 @@ from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 
 from .configuration import configure, display_configuration
-from .middleware import PathSanitizeMiddleware
+from .middleware import PathSanitizeMiddleware, SecurityHeadersMiddleware
 from .routes import display_subroutes, make_routes
 
 
@@ -26,6 +26,7 @@ async def lifespan(app: Starlette):
     yield
 
 middleware = [
+    Middleware(SecurityHeadersMiddleware),
     Middleware(PathSanitizeMiddleware),
 ]
 
