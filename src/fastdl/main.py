@@ -18,7 +18,7 @@ async def lifespan(app: Starlette):
     limiter.total_tokens = configuration.max_threads
 
     for server in configuration.servers:
-        app.router.routes.append(make_routes(server))
+        app.router.routes.extend(make_routes(server))
 
     display_configuration(configuration)
     display_subroutes()

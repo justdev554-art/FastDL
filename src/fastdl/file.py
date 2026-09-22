@@ -1,10 +1,21 @@
 import asyncio
 import os
+from dataclasses import dataclass
 from stat import S_ISDIR, S_ISREG
-from typing import Mapping, List, Tuple, Optional
+from typing import Dict, Mapping, List, Tuple, Optional
 
 from anyio import to_thread
 from .gameinfo import extract_searchpaths
+
+
+@dataclass(frozen=True, slots=True)
+class DirEntry:
+    """
+    A single entry within a directory listing.
+    """
+    name: str
+    is_dir: bool
+    size: int
 
 
 class File:
@@ -123,6 +134,45 @@ class File:
                 if os.path.isdir(os.path.join(path, subpath))
             ]
         return mtime, subpaths
+
+    async def list_dir(self, url_path: str) -> Optional[List[DirEntry]]:
+        """
+        Resolve a URL path to a directory listing if it exists.
+        """
+        return await to_thread.run_sync(self._list_dir, url_path, self.resolved_searchpaths)
+
+    @staticmethod
+    def _list_dir(url_path: str, searchpaths: List[str]) -> Optional[List[DirEntry]]:
+        """
+        Collect a merged directory listing across all search paths.
+        """
+        entries: Dict[str, DirEntry] = {}
+        found = False
+        for searchpath in searchpaths:
+            dir_path = os.path.join(searchpath, url_path)
+            try:
+                if not S_ISDIR(os.stat(dir_path).st_mode):
+                    continue
+            except (OSError, ValueError):
+                continue
+            found = True
+            try:
+                with os.scandir(dir_path) as iterator:
+                    for entry in iterator:
+                        if entry.name in entries:
+                            continue
+                        try:
+                            is_dir = entry.is_dir()
+                            size = 0 if is_dir else entry.stat().st_size
+                        except OSError:
+                            is_dir = False
+                            size = 0
+                        entries[entry.name] = DirEntry(entry.name, is_dir, size)
+            except OSError:
+                continue
+        if not found:
+            return None
+        return list(entries.values())
 
     async def __call__(self, url_path: str) -> Optional[Tuple[str, os.stat_result]]:
         """
