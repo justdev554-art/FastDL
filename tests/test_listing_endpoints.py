@@ -1,7 +1,7 @@
-def test_index_lists_all_subroutes(client):
+def test_index_lists_populated_subroutes(client):
     response = client.get('/test')
     assert response.status_code == 200
-    for subroute in ('maps', 'materials', 'models', 'scripts/items', 'shaders', 'sound'):
+    for subroute in ('maps', 'materials', 'scripts/items', 'sound'):
         assert f'/{subroute}/' in response.text
 
 

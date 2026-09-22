@@ -44,6 +44,17 @@ _write(ROOT / "tf" / "maps" / "space dir" / "100%odd.vtf", "MOCK")
 _write(ROOT / "tf" / "maps" / "space dir" / "notes.txt", "MOCK")
 _write(ROOT / "tf" / "maps" / "space dir" / "usable.nav", "MOCK")
 
+# Empty directory: exists on disk but has no content
+(ROOT / "tf" / "maps" / "empty_dir").mkdir(parents=True, exist_ok=True)
+
+_write(ROOT / "tf" / "materials" / "props" / "fence.vmt", "MOCK")
+_write(ROOT / "tf" / "scripts" / "items" / "items.txt", "MOCK")
+
+# Empty directory: exists but is completely empty (should be hidden from the index)
+(ROOT / "tf" / "shaders").mkdir(parents=True, exist_ok=True)
+
+# models/ is intentionally absent to exercise the "missing directory" case
+
 DE_DUST_BZ2 = bz2.compress(b"DE-DUST-ON-DISK-BZ2")
 _write_bytes(ROOT / "tf" / "maps" / "de_test" / "de_dust.bsp.bz2", DE_DUST_BZ2)
 

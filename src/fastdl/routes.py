@@ -103,17 +103,22 @@ def _page(title: str, rows: List[str]) -> str:
 </body>
 </html>'''
 
-def render_server_index(server_route: str) -> str:
+def render_server_index(server_route: str, subroutes: List[Tuple[str, str]]) -> str:
     """
-    Render the root index page listing all configured subroutes.
+    Render the root index page listing the given subroutes.
+
+    Only subroutes whose share directory exists and is non-empty should be passed here;
+    missing or completely empty directories are omitted from the index.
     """
     rows: List[str] = []
-    for subroute, share, _ in SUBROUTES:
+    for subroute, share in subroutes:
         href = _join_url(server_route, subroute)
         rows.append(
             f'<tr><td><a href="{href}/">{html.escape(subroute.strip("/"))}/</a></td>'
             f'<td class="size">{html.escape(share)}</td></tr>'
         )
+    if not rows:
+        rows.append('<tr><td colspan="2"><em>(no content)</em></td></tr>')
     return _page(server_route, rows)
 
 def render_directory_listing(server_route: str, subroute: str, subpath: str, entries: List[DirEntry], predicate: Callable[[str], bool]) -> str:
@@ -189,6 +194,12 @@ def make_endpoint(server: Server, share: str, subroute: str, access: File, predi
 
         # If the target is a directory, present a browsable listing of it
         if request.method == 'GET' and (listing := await access.list_dir(url_path)) is not None:
+            # Hide completely empty subdirectories so the listing only shows folders with content
+            listing = [
+                entry for entry in listing
+                if not entry.is_dir
+                or await access.list_dir(os.path.join(url_path, entry.name))
+            ]
             return HTMLResponse(
                 render_directory_listing(server.route, subroute, subpath, listing, predicate),
                 status_code=200,
@@ -249,13 +260,20 @@ def make_endpoint(server: Server, share: str, subroute: str, access: File, predi
     return endpoint
 
 
-def make_index_endpoint(server: Server) -> Callable:
+def make_index_endpoint(server: Server, access: File) -> Callable:
     """
     Create an endpoint that renders the root index page for a server.
+
+    Subroutes whose share directory is missing or completely empty are omitted.
     """
     async def index_endpoint(request: Request) -> Response:
+        present = [
+            (subroute, share)
+            for subroute, share, _ in SUBROUTES
+            if await access.list_dir(share)
+        ]
         return HTMLResponse(
-            render_server_index(server.route),
+            render_server_index(server.route, present),
             status_code=200,
             headers=LISTING_HEADERS,
         )
@@ -272,12 +290,12 @@ def make_routes(server: Server) -> List[Route]:
     return [
         Route(
             path=server.route,
-            endpoint=make_index_endpoint(server),
+            endpoint=make_index_endpoint(server, access),
             methods=['GET'],
         ),
         Route(
             path=f"{server.route}/",
-            endpoint=make_index_endpoint(server),
+            endpoint=make_index_endpoint(server, access),
             methods=['GET'],
         ),
         Mount(
