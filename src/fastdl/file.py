@@ -23,20 +23,36 @@ class File:
     Represents a file resolver that watches directories for changes and resolves paths.
     """
 
-    def __init__(self, path_base: str, path_mapping: Mapping[str, str]):
+    def __init__(self, path_bases: List[Tuple[str, Mapping[str, str]]]):
         """
-        Initialize the File object with a base path and a mapping of paths.
-        """
-        assert os.path.isdir(path_base), f"Invalid base directory: {path_base}"
-        for path in path_mapping.values():
-            assert os.path.isdir(os.path.join(path_base, path)), f"Invalid mapped directory: {path}"
+        Initialize the File object with a list of (path_base, path_mapping) roots.
 
-        self.searchpaths = self._initialize_searchpaths(path_base, path_mapping)
+        Each root contributes its own search paths (parsed from its own
+        gameinfo.txt), concatenated in the given order. Root paths later in the
+        list shadow files from earlier roots only fall through resolution order.
+        """
+        for path_base, path_mapping in path_bases:
+            assert os.path.isdir(path_base), f"Invalid base directory: {path_base}"
+            for path in path_mapping.values():
+                assert os.path.isdir(os.path.join(path_base, path)), f"Invalid mapped directory: {path}"
+
+        self.searchpaths = self._dedupe_searchpaths([
+            searchpath
+            for path_base, path_mapping in path_bases
+            for searchpath in self._initialize_searchpaths(path_base, path_mapping)
+        ])
         self.resolved_searchpaths: List[str] = []
         self._resolutions: List[Tuple[Optional[int], List[str]]] = []
 
         self.resolve()
         asyncio.get_running_loop().create_task(self.watch())
+
+    @staticmethod
+    def _dedupe_searchpaths(searchpaths: List[Tuple[str, bool]]) -> List[Tuple[str, bool]]:
+        """
+        Remove duplicate search paths while preserving their order.
+        """
+        return list(dict.fromkeys(searchpaths))
 
     def _initialize_searchpaths(self, path_base: str, path_mapping: Mapping[str, str]) -> List[Tuple[str, bool]]:
         """

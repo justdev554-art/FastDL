@@ -17,8 +17,12 @@ async def lifespan(app: Starlette):
     limiter = anyio.to_thread.current_default_thread_limiter()
     limiter.total_tokens = configuration.max_threads
 
+    grouped: dict[str, list] = {}
     for server in configuration.servers:
-        app.router.routes.extend(make_routes(server))
+        grouped.setdefault(server.route, []).append(server)
+
+    for servers in grouped.values():
+        app.router.routes.extend(make_routes(servers))
 
     display_configuration(configuration)
     display_subroutes()

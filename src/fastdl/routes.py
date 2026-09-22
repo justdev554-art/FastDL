@@ -172,7 +172,7 @@ async def stream_file(file_path: str) -> AsyncGenerator[bytes, None]:
             offset += len(chunk)
             yield chunk
 
-def make_endpoint(server: Server, share: str, subroute: str, access: File, predicate: Callable[[str], bool]) -> Callable:
+def make_endpoint(server_route: str, share: str, subroute: str, access: File, predicate: Callable[[str], bool]) -> Callable:
     """
     Create an endpoint for serving files based on a share path and predicate.
     """
@@ -190,7 +190,7 @@ def make_endpoint(server: Server, share: str, subroute: str, access: File, predi
                 or await access.list_dir(os.path.join(url_path, entry.name))
             ]
             return HTMLResponse(
-                render_directory_listing(server.route, subroute, subpath, listing, predicate),
+                render_directory_listing(server_route, subroute, subpath, listing, predicate),
                 status_code=200,
                 headers=LISTING_HEADERS,
             )
@@ -234,7 +234,7 @@ def make_endpoint(server: Server, share: str, subroute: str, access: File, predi
     return endpoint
 
 
-def make_index_endpoint(server: Server, access: File) -> Callable:
+def make_index_endpoint(server_route: str, access: File) -> Callable:
     """
     Create an endpoint that renders the root index page for a server.
 
@@ -247,7 +247,7 @@ def make_index_endpoint(server: Server, access: File) -> Callable:
             if await access.list_dir(share)
         ]
         return HTMLResponse(
-            render_server_index(server.route, present),
+            render_server_index(server_route, present),
             status_code=200,
             headers=LISTING_HEADERS,
         )
@@ -255,29 +255,33 @@ def make_index_endpoint(server: Server, access: File) -> Callable:
     return index_endpoint
 
 
-def make_routes(server: Server) -> List[Route]:
+def make_routes(servers: List[Server]) -> List[Route]:
     """
-    Create routes based on the base path, mapping, and predefined subroutes.
+    Create routes for a group of servers sharing the same route.
+
+    All servers in the group are merged into a single route that resolves
+    files by falling through each server's search paths in configuration order.
     """
-    access = File(server.path_base, server.path_mapping)
+    route = servers[0].route
+    access = File([(server.path_base, server.path_mapping) for server in servers])
 
     return [
         Route(
-            path=server.route,
-            endpoint=make_index_endpoint(server, access),
+            path=route,
+            endpoint=make_index_endpoint(route, access),
             methods=['GET'],
         ),
         Route(
-            path=f"{server.route}/",
-            endpoint=make_index_endpoint(server, access),
+            path=f"{route}/",
+            endpoint=make_index_endpoint(route, access),
             methods=['GET'],
         ),
         Mount(
-            path=server.route,
+            path=route,
             routes=[
                 Route(
                     path=f"{subroute}",
-                    endpoint=make_endpoint(server, share, subroute, access, predicate),
+                    endpoint=make_endpoint(route, share, subroute, access, predicate),
                     methods=['GET', 'HEAD'],
                 )
                 for subroute, share, predicate in SUBROUTES
@@ -285,7 +289,7 @@ def make_routes(server: Server) -> List[Route]:
             + [
                 Route(
                     path=f"{subroute}/{{path:path}}",
-                    endpoint=make_endpoint(server, share, subroute, access, predicate),
+                    endpoint=make_endpoint(route, share, subroute, access, predicate),
                     methods=['GET', 'HEAD'],
                 )
                 for subroute, share, predicate in SUBROUTES
