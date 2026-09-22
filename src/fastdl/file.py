@@ -142,6 +142,17 @@ class File:
         return await to_thread.run_sync(self._list_dir, url_path, self.resolved_searchpaths)
 
     @staticmethod
+    def _within(root: str, path: str) -> bool:
+        """
+        Return True if the given path stays within the search path root.
+        """
+        root = os.path.realpath(root)
+        try:
+            return os.path.commonpath((root, path)) == root
+        except ValueError:
+            return False
+
+    @staticmethod
     def _list_dir(url_path: str, searchpaths: List[str]) -> Optional[List[DirEntry]]:
         """
         Collect a merged directory listing across all search paths.
@@ -149,8 +160,10 @@ class File:
         entries: Dict[str, DirEntry] = {}
         found = False
         for searchpath in searchpaths:
-            dir_path = os.path.join(searchpath, url_path)
+            dir_path = os.path.realpath(os.path.join(searchpath, url_path))
             try:
+                if not File._within(searchpath, dir_path):
+                    continue
                 if not S_ISDIR(os.stat(dir_path).st_mode):
                     continue
             except (OSError, ValueError):
@@ -185,8 +198,10 @@ class File:
         Get the file path and stat result for a given URL path.
         """
         for searchpath in searchpaths:
-            # Construct the full file path
-            file_path = os.path.join(searchpath, url_path)
+            # Resolve the full path and verify it stays within the search path
+            file_path = os.path.realpath(os.path.join(searchpath, url_path))
+            if not File._within(searchpath, file_path):
+                continue
 
             # Check if the file exists and is a regular file
             try:

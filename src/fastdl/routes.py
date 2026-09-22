@@ -112,18 +112,20 @@ def render_directory_listing(server_route: str, subroute: str, subpath: str, ent
     Render a directory listing page for the given subroute and relative path.
     """
     subpath = subpath.strip('/')
+    segments = [segment for segment in subpath.split('/') if segment]
+    quoted_segments = [quote(segment) for segment in segments]
     title_parts = [part for part in (subroute, subpath) if part]
     title = '/'.join(title_parts)
-    base = _join_url(server_route, subroute, subpath)
+    base = _join_url(server_route, subroute, *quoted_segments)
 
     rows: List[str] = []
 
-    segments = [segment for segment in subpath.split('/') if segment]
     if segments:
-        parent = _join_url(server_route, subroute, *segments[:-1])
+        parent = _join_url(server_route, subroute, *quoted_segments[:-1])
         rows.append(f'<tr><td><a href="{parent}/">../</a></td><td class="size">-</td></tr>')
     else:
-        rows.append(f'<tr><td><a href="/{server_route.strip("/")}/">../</a></td><td class="size">-</td></tr>')
+        root = quote(server_route.strip('/'))
+        rows.append(f'<tr><td><a href="/{root}/">../</a></td><td class="size">-</td></tr>')
 
     directories = sorted((entry for entry in entries if entry.is_dir), key=lambda entry: entry.name.lower())
     files = sorted(

@@ -20,7 +20,8 @@ class PathSanitizeMiddleware:
         """
         Sanitize the given path by normalizing it and removing path traversal components.
         """
-        # Split the incoming path into its segments using '/'
+        # Treat backslashes as path separators so they cannot be used to bypass sanitization
+        path = path.replace('\\', '/')
         parts = path.split('/')
 
         # This list will collect the sanitized path segments
