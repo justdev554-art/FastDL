@@ -1,4 +1,5 @@
 import html
+import logging
 import os
 from mimetypes import guess_file_type
 from typing import AsyncGenerator, Callable, List, Tuple
@@ -13,6 +14,8 @@ from starlette.routing import Mount, Route
 from fastdl.configuration import Server
 from fastdl.file import DirEntry, File
 from fastdl.ratelimit import DownloadLimiter
+
+logger = logging.getLogger("fastdl")
 
 
 class Suffix:
@@ -279,6 +282,10 @@ def make_routes(servers: List[Server], limiter: DownloadLimiter) -> List[Route]:
     """
     route = servers[0].route
     access = File([(server.path_base, server.path_mapping) for server in servers])
+
+    if not access.searchpaths:
+        logger.warning("Skipping route %s: no valid server roots", route)
+        return []
 
     return [
         Route(

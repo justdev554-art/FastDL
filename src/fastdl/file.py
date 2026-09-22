@@ -1,11 +1,15 @@
 import asyncio
+import logging
 import os
 from dataclasses import dataclass
 from stat import S_ISDIR, S_ISREG
 from typing import Dict, Mapping, List, Tuple, Optional
 
 from anyio import to_thread
+from .common import InternalError
 from .gameinfo import extract_searchpaths
+
+logger = logging.getLogger("fastdl")
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,17 +34,28 @@ class File:
         Each root contributes its own search paths (parsed from its own
         gameinfo.txt), concatenated in the given order. Root paths later in the
         list shadow files from earlier roots only fall through resolution order.
-        """
-        for path_base, path_mapping in path_bases:
-            assert os.path.isdir(path_base), f"Invalid base directory: {path_base}"
-            for path in path_mapping.values():
-                assert os.path.isdir(os.path.join(path_base, path)), f"Invalid mapped directory: {path}"
 
-        self.searchpaths = self._dedupe_searchpaths([
-            searchpath
-            for path_base, path_mapping in path_bases
-            for searchpath in self._initialize_searchpaths(path_base, path_mapping)
-        ])
+        Roots whose base directory, mapped directories, or gameinfo.txt are
+        missing or unreadable are skipped with a warning instead of aborting.
+        """
+        searchpaths = []
+        for path_base, path_mapping in path_bases:
+            if not os.path.isdir(path_base):
+                logger.warning("Skipping invalid base directory: %s", path_base)
+                continue
+            mapped = [os.path.join(path_base, path) for path in path_mapping.values()]
+            if not all(os.path.isdir(path) for path in mapped):
+                logger.warning(
+                    "Skipping base directory %s: mapped paths not found: %s",
+                    path_base, ", ".join(mapped),
+                )
+                continue
+            try:
+                searchpaths.extend(self._initialize_searchpaths(path_base, path_mapping))
+            except InternalError as error:
+                logger.warning("Skipping base directory %s: %s", path_base, error)
+                continue
+        self.searchpaths = self._dedupe_searchpaths(searchpaths)
         self.resolved_searchpaths: List[str] = []
         self._resolutions: List[Tuple[Optional[int], List[str]]] = []
 
